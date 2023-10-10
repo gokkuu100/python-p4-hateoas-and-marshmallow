@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from flask import Flask, request, make_response
+from flask import Flask, jsonify, request, make_response
 from flask_marshmallow import Marshmallow
 from flask_migrate import Migrate
 from flask_restful import Api, Resource
@@ -15,18 +15,19 @@ app.json.compact = False
 migrate = Migrate(app, db)
 db.init_app(app)
 
-api = Api(app)
+ma = Marshmallow(app)
 
+api = Api(app)
 class Index(Resource):
 
     def get(self):
-        
+
         response_dict = {
             "index": "Welcome to the Newsletter RESTful API",
         }
-        
+
         response = make_response(
-            response_dict,
+            jsonify(response_dict),
             200,
         )
 
@@ -37,30 +38,28 @@ api.add_resource(Index, '/')
 class Newsletters(Resource):
 
     def get(self):
-        
-        response_dict_list = [n.to_dict() for n in Newsletter.query.all()]
+
+        newsletters = Newsletter.query.all()
 
         response = make_response(
-            response_dict_list,
+            newsletters_schema.dump(newsletters),
             200,
         )
 
         return response
 
     def post(self):
-        
-        new_record = Newsletter(
+
+        new_newsletter = Newsletter(
             title=request.form['title'],
             body=request.form['body'],
         )
 
-        db.session.add(new_record)
+        db.session.add(new_newsletter)
         db.session.commit()
 
-        response_dict = new_record.to_dict()
-
         response = make_response(
-            response_dict,
+            newsletter_schema.dump(new_newsletter),
             201,
         )
 
@@ -72,10 +71,10 @@ class NewsletterByID(Resource):
 
     def get(self, id):
 
-        response_dict = Newsletter.query.filter_by(id=id).first().to_dict()
+        newsletter = Newsletter.query.filter_by(id=id).first()
 
         response = make_response(
-            response_dict,
+            newsletter_schema.dump(newsletter),
             200,
         )
 
@@ -83,17 +82,15 @@ class NewsletterByID(Resource):
 
     def patch(self, id):
 
-        record = Newsletter.query.filter_by(id=id).first()
+        newsletter = Newsletter.query.filter_by(id=id).first()
         for attr in request.form:
-            setattr(record, attr, request.form[attr])
+            setattr(newsletter, attr, request.form[attr])
 
-        db.session.add(record)
+        db.session.add(newsletter)
         db.session.commit()
 
-        response_dict = record.to_dict()
-
         response = make_response(
-            response_dict,
+            newsletter_schema.dump(newsletter),
             200
         )
 
@@ -102,14 +99,14 @@ class NewsletterByID(Resource):
     def delete(self, id):
 
         record = Newsletter.query.filter_by(id=id).first()
-        
+
         db.session.delete(record)
         db.session.commit()
 
         response_dict = {"message": "record successfully deleted"}
 
         response = make_response(
-            response_dict,
+            jsonify(response_dict),
             200
         )
 
